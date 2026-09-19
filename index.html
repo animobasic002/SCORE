@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LocalBench — System Benchmark</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090e1b;
+      --panel: #111a2c;
+      --border: #26324b;
+      --text: #edf2ff;
+      --muted: #a0afca;
+      --accent: #82f4c5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(ellipse at top right, #183449 0, transparent 50%),
+        var(--bg);
+      color: var(--text);
+      font: 16px/1.6 system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    main { max-width: 1080px; margin: auto; padding: 48px 22px; }
+    header { margin-bottom: 30px; }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    h1 {
+      font-size: clamp(34px, 6vw, 56px);
+      letter-spacing: -.045em;
+      line-height: 1.1;
+      margin: 12px 0 18px;
+    }
+    h2 { font-size: 18px; margin: 0; }
+    p { color: var(--muted); margin: 10px 0; }
+    .panel {
+      background: #111a2ce8;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 1.7fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .score-panel {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 260px;
+    }
+    .score {
+      font-size: clamp(52px, 8vw, 80px);
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -.06em;
+      line-height: 1.2;
+      margin: 16px 0;
+    }
+    .small { font-size: 13px; color: var(--muted); }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    button, select {
+      font: inherit;
+      border-radius: 10px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+    }
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      background: var(--accent);
+      color: #082218;
+    }
+    button.secondary, select {
+      background: #19253b;
+      color: var(--text);
+    }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    button:focus-visible, select:focus-visible {
+      outline: 3px solid #7cbaff;
+      outline-offset: 3px;
+    }
+    label { display: block; margin-top: 18px; }
+    select { margin-left: 8px; padding: 6px 12px; }
+    progress {
+      width: 100%;
+      height: 9px;
+      margin-top: 22px;
+      accent-color: var(--accent);
+    }
+    #status { min-height: 26px; margin-top: 8px; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .metric-value {
+      font-size: 32px;
+      font-weight: 750;
+      margin-top: 14px;
+      letter-spacing: -.03em;
+    }
+    .metric-label { color: var(--muted); font-size: 13px; }
+    .notice { border-left: 3px solid var(--accent); padding-left: 14px; }
+    details { margin-top: 20px; }
+    summary { cursor: pointer; font-weight: 700; }
+    code { color: var(--accent); }
+    footer { margin-top: 24px; font-size: 13px; color: var(--muted); }
+    @media (max-width: 700px) {
+      main { padding: 28px 16px; }
+      .hero, .metrics { grid-template-columns: 1fr; }
+      .panel { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">LocalBench / Version 1.0</div>
+    <h1>How fast is your machine?</h1>
+    <p>
+      A lightweight, local benchmark. No uploads, accounts,
+      dependencies, or cloud processing.
+    </p>
+  </header>
+
+<section class="hero" aria-label="Benchmark controls">
+    <div class="panel score-panel">
+      <div class="eyebrow">Overall benchmark score</div>
+      <div id="score" class="score">—</div>
+      <div id="scoreCaption" class="small">
+        Run the benchmark to evaluate this browser and device.
+      </div>
+    </div>
+
+<div class="panel">
+      <h2>Ready when you are</h2>
+      <p id="systemInfo"></p>
+      <p class="small">
+        Plug in your laptop, close heavy applications, and keep this
+        tab visible. Testing usually takes about 10–20 seconds.
+      </p>
+
+<label for="workers">
+        Parallel CPU workers
+        <select id="workers"></select>
+      </label>
+
+<div class="controls">
+        <button id="start">Run benchmark</button>
+        <button id="stop" class="secondary" disabled>Stop</button>
+        <button id="export" class="secondary" disabled>Export JSON</button>
+      </div>
+
+<progress id="progress" max="3" value="0"
+                aria-label="Completed benchmark stages"></progress>
+      <div id="status" class="small" role="status" aria-live="polite">
+        Ready. Tests run only after you press Run.
+      </div>
+    </div>
+  </section>
+
+<section class="metrics" aria-label="Benchmark results">
+    <article class="panel">
+      <h2>Single-worker CPU</h2>
+      <div id="single" class="metric-value">—</div>
+      <div class="metric-label">Million workload iterations / second</div>
+      <p class="small">Mixed integer and floating-point computation.</p>
+    </article>
+
+<article class="panel">
+      <h2>Parallel CPU</h2>
+      <div id="multi" class="metric-value">—</div>
+      <div class="metric-label">Million workload iterations / second</div>
+      <p class="small">Aggregate throughput across selected workers.</p>
+    </article>
+
+<article class="panel">
+      <h2>Memory copy</h2>
+      <div id="memory" class="metric-value">—</div>
+      <div class="metric-label">GB / second of copied payload</div>
+      <p class="small">Repeated 16 MiB copies; 32 MiB working set.</p>
+    </article>
+  </section>
+
+<section class="panel">
+    <h2>Understanding your result</h2>
+    <p class="notice">
+      This is a short synthetic benchmark, not a complete hardware diagnosis.
+      It temporarily increases CPU usage and may cause fan noise or warmth.
+      Stop testing if your device becomes uncomfortable.
+    </p>
+
+<details>
+      <summary>How the score works</summary>
+      <p>
+        Each workload receives a short warm-up before measurement.
+        Single-worker CPU runs for 2.5 seconds, parallel CPU for 3.5
+        seconds, and memory copy for 2.5 seconds.
+      </p>
+      <p>
+        The score uses a weighted geometric mean: 35% single-worker CPU,
+        45% parallel CPU, and 20% memory copy.
+        Arbitrary reference rates are 20 million CPU iterations/second,
+        80 million parallel iterations/second, and 5 GB/second memory copy.
+        A machine exactly matching those rates scores 1,000.
+      </p>
+      <p>
+        These references are scaling constants—not measured reference
+        hardware or population averages. Twice the score means twice
+        the weighted normalized throughput in these workloads, not twice
+        the performance in every application.
+      </p>
+      <p>
+        Compare results using the same browser version, selected worker
+        count, power mode, and benchmark version. Repeat runs to check
+        consistency. Worker count defaults to reported logical concurrency,
+        capped at 16 to avoid excessive resource use.
+      </p>
+      <p>
+        JavaScript engine optimizations, scheduling, CPU caches, thermal
+        limits, and background activity affect results. Memory results
+        include cache and browser effects; they are not raw DRAM bandwidth.
+        GPU, disk, network, temperatures, and hardware health are not tested.
+      </p>
+    </details>
+  </section>
+
+<footer>
+    Everything executes on this device. Exported reports include browser
+    identification and benchmark results, but are never uploaded.
+  </footer>
+</main>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const BENCHMARK_VERSION = "1.0";
+const reportedThreads = navigator.hardwareConcurrency || null;
+const maxWorkers = Math.min(16, reportedThreads || 4);
+const references = {
+  singleMillionIterationsPerSecond: 20,
+  parallelMillionIterationsPerSecond: 80,
+  memoryGBPerSecond: 5
+};
+
+let controller = null;
+let lastResult = null;
+
+for (let count = 1; count <= maxWorkers; count++) {
+  const option = document.createElement("option");
+  option.value = String(count);
+  option.textContent = String(count);
+  $("workers").append(option);
+}
+$("workers").value = String(maxWorkers);
+
+$("systemInfo").textContent = reportedThreads
+  ? `${reportedThreads} logical processors reported by the browser. ` +
+    `This app allows up to ${maxWorkers} parallel workers.`
+  : `Logical processor count unavailable. Up to ${maxWorkers} workers available.`;
+
+/*
+ * Every CPU iteration contributes to a returned checksum, making the
+ * computation observable rather than an unused empty-loop benchmark.
+ */
+function benchmarkWorker() {
+  "use strict";
+
+function cpu(ms) {
+    let x = 0x12345678;
+    let y = 1;
+    let iterations = 0;
+    const begin = performance.now();
+    let now = begin;
+
+do {
+      for (let i = 0; i < 16384; i++) {
+        x = Math.imul(x ^ (x >>> 13), 1597334677);
+        x = (x + 12345) | 0;
+        y = (y + Math.sqrt((x >>> 0) + 1)) * 0.5;
+      }
+      iterations += 16384;
+      now = performance.now();
+    } while (now - begin < ms);
+
+return {
+      rate: iterations / ((now - begin) / 1000),
+      elapsedMs: now - begin,
+      checksum: x + y
+    };
+  }
+
+function memory(ms, source, destination) {
+    let copies = 0;
+    const begin = performance.now();
+    let now = begin;
+
+do {
+      destination.set(source);
+      copies++;
+      now = performance.now();
+    } while (now - begin < ms);
+
+return {
+      rate: copies * source.byteLength / ((now - begin) / 1000),
+      elapsedMs: now - begin,
+      checksum:
+        destination[0] +
+        destination[destination.length - 1] +
+        copies
+    };
+  }
+
+self.onmessage = event => {
+    try {
+      const { kind, ms } = event.data;
+      let result;
+
+if (kind === "cpu") {
+        cpu(350);
+        result = cpu(ms);
+      } else if (kind === "memory") {
+        const elements = (16 * 1024 * 1024) / 4;
+        const source = new Uint32Array(elements);
+        const destination = new Uint32Array(elements);
+
+// Touch both allocations before timing.
+        for (let i = 0; i < elements; i++) {
+          source[i] = Math.imul(i + 1, 2654435761);
+        }
+        destination.fill(1);
+
+memory(350, source, destination);
+        result = memory(ms, source, destination);
+      } else {
+        throw new Error("Unknown workload.");
+      }
+
+self.postMessage({ type: "result", result });
+    } catch (error) {
+      self.postMessage({ type: "error", message: error.message });
+    }
+  };
+
+self.postMessage({ type: "ready" });
+}
+
+const workerURL = URL.createObjectURL(new Blob(
+  [`(${benchmarkWorker.toString()})();`],
+  { type: "text/javascript" }
+));
+
+/*
+ * Start only after every worker has loaded. Each worker warms up and
+ * measures its own duration; parallel throughput sums those rates.
+ * These are approximate overlapping windows, not hardware-level
+ * synchronized measurements.
+ */
+function execute(kind, count, ms, signal) {
+  return new Promise((resolve, reject) => {
+    const workers = [];
+    const results = [];
+    let ready = 0;
+    let completed = 0;
+    let finished = false;
+    let timeout;
+
+function finish(error, value) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", onAbort);
+      for (const worker of workers) worker.terminate();
+      if (error) reject(error);
+      else resolve(value);
+    }
+
+function onAbort() {
+      finish(new DOMException("Benchmark stopped.", "AbortError"));
+    }
+
+if (signal.aborted) {
+      onAbort();
+      return;
+    }
+
+signal.addEventListener("abort", onAbort, { once: true });
+
+timeout = setTimeout(() => {
+      finish(new Error(
+        "The workload timed out. Close heavy applications and try fewer workers."
+      ));
+    }, 30000);
+
+try {
+      for (let i = 0; i < count; i++) {
+        const worker = new Worker(workerURL);
+        workers.push(worker);
+
+worker.onerror = event => {
+          event.preventDefault();
+          finish(new Error(
+            "A benchmark worker failed. Try a current browser or fewer workers."
+          ));
+        };
+
+worker.onmessageerror = () => {
+          finish(new Error("The browser could not read a worker result."));
+        };
+
+worker.onmessage = event => {
+          if (finished) return;
+          const message = event.data;
+
+if (message.type === "ready") {
+            ready++;
+            if (ready === count) {
+              for (const item of workers) {
+                item.postMessage({ kind, ms });
+              }
+            }
+          } else if (message.type === "error") {
+            finish(new Error(message.message));
+          } else if (message.type === "result") {
+            if (!Number.isFinite(message.result.rate) ||
+                message.result.rate <= 0) {
+              finish(new Error("Invalid timing result. Please try again."));
+              return;
+            }
+            results[i] = message.result;
+            completed++;
+
+if (completed === count) finish(null, results);
+          }
+        };
+      }
+    } catch (error) {
+      finish(error);
+    }
+  });
+}
+
+function setRunning(running) {
+  $("start").disabled = running;
+  $("workers").disabled = running;
+  $("stop").disabled = !running;
+  $("export").disabled = running || !lastResult;
+}
+
+function format(value) {
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
+function stopBenchmark(message) {
+  if (!controller) return;
+  controller.abort();
+  $("status").textContent = message;
+}
+
+$("stop").addEventListener("click", () => {
+  stopBenchmark("Stopped. No overall score was assigned.");
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && controller) {
+    stopBenchmark(
+      "Stopped because the tab became hidden. Keep it visible for reliable timing."
+    );
+  }
+});
+
+$("start").addEventListener("click", async () => {
+  if (controller) return;
+
+if (document.hidden) {
+    $("status").textContent = "Keep this tab visible before starting.";
+    return;
+  }
+
+if (!window.Worker) {
+    $("status").textContent =
+      "This browser does not support Web Workers. Use a current browser.";
+    return;
+  }
+
+const runController = new AbortController();
+  controller = runController;
+  lastResult = null;
+  const workerCount = Number($("workers").value);
+
+setRunning(true);
+  $("progress").value = 0;
+  $("score").textContent = "—";
+  $("scoreCaption").textContent = "Evaluation in progress…";
+  for (const id of ["single", "multi", "memory"]) {
+    $(id).textContent = "—";
+  }
+
+try {
+    $("status").textContent = "1 / 3 — Testing single-worker CPU…";
+    const singleSamples = await execute(
+      "cpu", 1, 2500, runController.signal
+    );
+    const single = singleSamples[0].rate / 1e6;
+    $("single").textContent = format(single);
+    $("progress").value = 1;
+
+$("status").textContent =
+      `2 / 3 — Testing parallel CPU with ${workerCount} workers…`;
+    const parallelSamples = await execute(
+      "cpu", workerCount, 3500, runController.signal
+    );
+    const multi = parallelSamples.reduce(
+      (total, sample) => total + sample.rate, 0
+    ) / 1e6;
+    $("multi").textContent = format(multi);
+    $("progress").value = 2;
+
+$("status").textContent = "3 / 3 — Testing memory-copy throughput…";
+    const memorySamples = await execute(
+      "memory", 1, 2500, runController.signal
+    );
+    const memory = memorySamples[0].rate / 1e9;
+    $("memory").textContent = format(memory);
+    $("progress").value = 3;
+
+const score = Math.round(1000 * Math.exp(
+      0.35 * Math.log(single /
+        references.singleMillionIterationsPerSecond) +
+      0.45 * Math.log(multi /
+        references.parallelMillionIterationsPerSecond) +
+      0.20 * Math.log(memory / references.memoryGBPerSecond)
+    ));
+
+lastResult = {
+      benchmark: "LocalBench",
+      version: BENCHMARK_VERSION,
+      completedAt: new Date().toISOString(),
+      score,
+      environment: {
+        userAgent: navigator.userAgent,
+        reportedLogicalProcessors: reportedThreads,
+        selectedParallelWorkers: workerCount,
+        crossOriginIsolated: window.crossOriginIsolated
+      },
+      results: {
+        singleMillionIterationsPerSecond: single,
+        parallelMillionIterationsPerSecond: multi,
+        memoryGBPerSecond: memory
+      },
+      methodology: {
+        references,
+        weights: { single: 0.35, parallel: 0.45, memory: 0.20 },
+        warmupMsPerWorker: 350,
+        targetMeasurementMs: {
+          single: 2500,
+          parallel: 3500,
+          memory: 2500
+        },
+        memoryCopyBytes: 16 * 1024 * 1024,
+        memoryWorkingSetBytes: 32 * 1024 * 1024,
+        memoryRateDefinition: "Copied payload bytes per second",
+        parallelRateDefinition: "Sum of individually timed worker rates"
+      },
+      samples: { singleSamples, parallelSamples, memorySamples }
+    };
+
+$("score").textContent = score.toLocaleString();
+    $("scoreCaption").textContent =
+      "LocalBench points · higher is better";
+    $("status").textContent =
+      "Complete. Repeat under the same conditions to check consistency.";
+  } catch (error) {
+    $("scoreCaption").textContent = "Evaluation incomplete.";
+    if (error.name !== "AbortError") {
+      $("status").textContent = `Could not complete: ${error.message}`;
+    }
+  } finally {
+    controller = null;
+    setRunning(false);
+  }
+});
+
+$("export").addEventListener("click", () => {
+  if (!lastResult) return;
+
+const blob = new Blob(
+    [JSON.stringify(lastResult, null, 2)],
+    { type: "application/json" }
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `localbench-${Date.now()}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+window.addEventListener("pagehide", () => {
+  stopBenchmark("Stopped because the page was closed or navigated away.");
+});
+</script>
+</body>
+</html>
